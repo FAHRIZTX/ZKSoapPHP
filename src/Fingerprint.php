@@ -6,14 +6,14 @@ namespace Fahriztx\Zksoapphp;
  */
 class Fingerprint
 {
-	protected static $conn;
-	protected static $ip;
-	protected static $port;
-	protected static $comkey;
-	protected static $isConnected = false;
-	protected static $NL = "\r\n";
+	private static $conn;
+	private static $ip;
+	private static $port;
+	private static $comkey;
+	private static $isConnected = false;
+	private static $NL = "\r\n";
 
-	protected static $payload = [
+	private static $payload = [
 		'GetAttLog' => '<GetAttLog><ArgComKey xsi:type=\"xsd:integer\">#COMKEY</ArgComKey>#PIN</GetAttLog>',
 		'GetUserInfo' => '<GetUserInfo><ArgComKey xsi:type=\"xsd:integer\">#COMKEY</ArgComKey>#PIN</GetUserInfo>'
 	];
@@ -31,7 +31,7 @@ class Fingerprint
 		}else{
 			static::$isConnected = false;
 		}
-
+		
 		return (new static);
 	}
 
@@ -78,7 +78,7 @@ class Fingerprint
 	    return static::parseUserInfoData($buffer);
 	}
 
-	static function parseUserInfoData($data="") {
+	private static function parseUserInfoData($data="") {
 
         $dataRow = explode("<Row>", $data);
         array_shift($dataRow);
@@ -110,8 +110,12 @@ class Fingerprint
         return $userData;
     }
 
-	public function getAttendance($pin='all')
+	public function getAttendance($pin='all', $date_start=null, $date_end=null)
 	{
+		if ($date_start != null && $date_end == null) {
+			$date_end = $date_start;
+		}
+
 		$payload = self::$payload['GetAttLog'];
 
 		static::connect(static::$ip, static::$port, static::$comkey);
@@ -145,11 +149,10 @@ class Fingerprint
 	    $buffer = str_replace($gaRes, "", $buffer);
 
 	    fclose(static::$conn);
-	    return static::parseAttendanceData($buffer);
+	    return static::parseAttendanceData($buffer, $date_start, $date_end);
 	}
 
-	static function parseAttendanceData($data="") {
-
+	private static function parseAttendanceData($data="", $date_start=null, $date_end=null) {
         $dataRow = explode("<Row>", $data);
         array_shift($dataRow);
 
@@ -164,19 +167,37 @@ class Fingerprint
             $status = static::getValueFromTag($endRow, "<Status>", "</Status>");
             $workcode = static::getValueFromTag($endRow, "<WorkCode>", "</WorkCode>");
 
-            $fingerData[] = [
-                'pin' => $fid,
-                'datetime' => $datetime,
-                'verified' => $verified,
-                'status' => $status,
-                'workcode' => $workcode,
-            ];
+            if ($date_start != null &&  $date_end != null) {
+            	
+            	$rangeDate = static::dateRange($date_start, $date_end);
+
+            	$dateCheck = explode(' ', $datetime)[0];
+
+            	if (in_array($dateCheck, $rangeDate)) {
+		            $fingerData[] = [
+		                'pin' => $fid,
+		                'datetime' => $datetime,
+		                'verified' => $verified,
+		                'status' => $status,
+		                'workcode' => $workcode,
+		            ];
+            	}
+
+            } else {
+            	$fingerData[] = [
+	                'pin' => $fid,
+	                'datetime' => $datetime,
+	                'verified' => $verified,
+	                'status' => $status,
+	                'workcode' => $workcode,
+	            ];
+            }
         }
 
         return $fingerData;
     }
 
-    static function getValueFromTag($a, $b, $c)
+    private static function getValueFromTag($a, $b, $c)
     {
         $a = " ".$a;
         $hasil = "";
@@ -190,7 +211,25 @@ class Fingerprint
         return $hasil; 
     }
 
-	public function generateRequest($payload)
+    private static function dateRange($startDate, $endDate)
+    {
+    	$dateRange = [];
+        $period = new \DatePeriod(
+            new \DateTime($startDate),
+            new \DateInterval('P1D'),
+            new \DateTime($endDate)
+        );
+
+        foreach ($period as $key => $value) {
+            array_push($dateRange, $value->format('Y-m-d'));
+        }
+
+		array_push($dateRange, date('Y-m-d', strtotime($endDate)));
+
+        return $dateRange;
+    }
+
+	private function generateRequest($payload)
 	{
 		$payload = str_replace("#COMKEY", static::$comkey, $payload);
 		fputs(static::$conn, "POST /iWsService HTTP/1.0".self::$NL);
