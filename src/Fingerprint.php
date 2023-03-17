@@ -18,7 +18,7 @@ class Fingerprint
         'GetUserInfo' => '<GetUserInfo><ArgComKey xsi:type=\"xsd:integer\">#COMKEY</ArgComKey>#PIN</GetUserInfo>'
     ];
 
-    public function connect($ip, $port=80, $comkey=0)
+    public static function connect($ip, $port=80, $comkey=0)
     {
         static::$ip = $ip;
         static::$port = $port;
