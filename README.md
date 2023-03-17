@@ -87,3 +87,7 @@ print_r($machine->getUserInfo([1, 2])); // return Array of User Info Data
 
 ```
 
+## Changelog
+
+* Add support fot PHP >= 8.0
+* Fixing Non-static method Fahriztx\Zksoapphp\Fingerprint::connect() cannot be called statically
